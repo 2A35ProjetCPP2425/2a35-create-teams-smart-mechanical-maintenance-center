@@ -4,6 +4,7 @@
 #include <QGraphicsPixmapItem>
 #include <QGraphicsEllipseItem>
 #include"commande.h"
+#include "qserialport.h"
 #include "qsortfilterproxymodel.h"
 #include <QGraphicsView>
 #include <QGraphicsScene>
@@ -32,8 +33,17 @@ private:
     void displayOrderStatusStatistics();
     void on_loadHistoriqueButton_clicked();
     void updateModel();
-    void updateTimeline(const QList<QPair<QString, QDateTime>> &steps, int currentStep);
-    void onClickSuivi();
+    void setupTimeline(const QStringList &labels, const QStringList &dates, int activeStep);
+    void on_suiviButton_clicked();
+    void setupArduino();
+    void readFromArduino();
+    int flameStatus;
+    void updateFlammeTable(int flameStatus);
+    int readFlammeStatusFromDB();
+    void controlBuzzer(int flameStatus);
+    void updateBuzzerStatus();
+    void setupTimer();
+
 
 private:
     Ui::MainWindow *ui; // Declare 'ui' first
@@ -41,5 +51,7 @@ private:
     Commande cmp;
     QGraphicsScene *scene;
     QGraphicsScene *timelineScene;
+    QSerialPort *arduino;  // Pointer to the serial port object
+
 };
 #endif // MAINWINDOW_H

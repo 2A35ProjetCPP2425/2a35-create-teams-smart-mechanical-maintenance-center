@@ -1,7 +1,7 @@
 QT       += core gui
 QT += sql
 QT += charts
-
+QT += core gui serialport
 
 
 

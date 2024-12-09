@@ -18,14 +18,23 @@
 #include <QSqlError>
 #include <QtCharts/QLineSeries>
 #include <QDateTime>
+#include <QGraphicsOpacityEffect>
+#include <QPropertyAnimation>
+#include <QSerialPort>
+#include <QSerialPortInfo>
+#include <QTimer>
+#include <QVariantAnimation>
+
 
 
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
-    ui(new Ui::MainWindow),
-    proxyModel(new QSortFilterProxyModel(this)),  // Initialize proxy model
-    scene(new QGraphicsScene(this)), timelineScene(new QGraphicsScene(this))
+    flameStatus(0),
+    ui(new Ui::MainWindow),  // Initialize proxy model
+    proxyModel(new QSortFilterProxyModel(this)), scene(new QGraphicsScene(this)),
+    timelineScene(new QGraphicsScene(this)),
+    arduino(new QSerialPort(this))
 {
     ui->setupUi(this);
         ui->graphicsView_2->setScene(timelineScene);
@@ -45,6 +54,11 @@ MainWindow::MainWindow(QWidget *parent) :
         proxyModel->setFilterRegularExpression(QRegularExpression(text, QRegularExpression::CaseInsensitiveOption)); // Use case-insensitive search
     });
 
+
+
+    setupArduino();
+
+
     // Connect other buttons to their respective slots
     connect(ui->ajouterButton, &QPushButton::clicked, this, &MainWindow::on_ajouterButton_clicked);
     connect(ui->supprimerButton, &QPushButton::clicked, this, &MainWindow::on_supprimerButton_clicked);
@@ -54,7 +68,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->buttonOrdersPerMonth, &QPushButton::clicked, this, &MainWindow::displayOrdersPerMonthStatistics);
     connect(ui->buttonOrdersStatus, &QPushButton::clicked, this, &MainWindow::displayOrderStatusStatistics);
     connect(ui->loadButton, &QPushButton::clicked, this, &MainWindow::on_loadHistoriqueButton_clicked);
-    connect(ui->suiviButton, &QPushButton::clicked, this, &MainWindow::onClickSuivi);
+    connect(ui->suiviButton, &QPushButton::clicked, this, &MainWindow::on_suiviButton_clicked);
 
 
 }
@@ -439,91 +453,251 @@ void MainWindow::updateModel() {
     ui->tableView->setModel(proxyModel); // Attach the proxy model to the table view
 }
 
-void MainWindow::updateTimeline(const QList<QPair<QString, QDateTime>> &steps, int currentStep)
+void MainWindow::setupTimeline(const QStringList &labels, const QStringList &dates, int activeStep)
 {
-    // Effacer la scène existante
+    // Nettoyer la scène existante
     timelineScene->clear();
 
-    // Configurations
-    int stepCount = steps.size();
-    int sceneWidth = 600;  // Largeur de la timeline
-    int sceneHeight = 100; // Hauteur de la timeline
-    int stepSpacing = sceneWidth / stepCount;
-
+    // Dimensions de la scène
+    int sceneWidth = 800;
+    int sceneHeight = 200;
     timelineScene->setSceneRect(0, 0, sceneWidth, sceneHeight);
 
-    // Dessiner la ligne de la timeline
-    QPen pen(Qt::black, 2);
-    timelineScene->addLine(50, sceneHeight / 2, sceneWidth - 50, sceneHeight / 2, pen);
+    // Variables pour les cercles et les lignes
+    int stepCount = labels.size();
+    int circleRadius = 20;
+    int yPosition = sceneHeight / 2;
+    int stepSpacing = stepCount > 1 ? sceneWidth / (stepCount + 1) : sceneWidth / 2;  // Ajustement dynamique de l'espacement des étapes
 
-    for (int i = 0; i < stepCount; ++i)
-    {
-        int x = 50 + i * stepSpacing; // Position X du point
+    for (int i = 0; i < stepCount; ++i) {
+        int xPosition = (i + 1) * stepSpacing;
 
-        // Dessiner un cercle pour chaque étape
-        QBrush brush(i == currentStep ? Qt::blue : Qt::gray); // Couleur selon l'étape actuelle
-        QGraphicsEllipseItem *stepCircle = timelineScene->addEllipse(x - 10, (sceneHeight / 2) - 10, 20, 20, pen, brush);
+        // Cercle
+        QGraphicsEllipseItem *circle = new QGraphicsEllipseItem(xPosition - circleRadius, yPosition - circleRadius, 2 * circleRadius, 2 * circleRadius);
+        circle->setBrush(i <= activeStep ? Qt::green : Qt::gray); // Les étapes actives en vert
+        circle->setPen(QPen(Qt::black));
+        timelineScene->addItem(circle);
 
-        // Ajouter le texte pour chaque étape (étape + date)
-        QString stepText = steps[i].first + "\n" + steps[i].second.toString("yyyy-MM-dd hh:mm:ss");
-        QGraphicsTextItem *textItem = timelineScene->addText(stepText);
+        // Assurez-vous que le format de la date est correct
+        QString dateWithoutTime = dates[i].split('T').first();  // Récupérer uniquement la date sans l'heure
+
+        // Parse the date string, fallback to current date if invalid
+        QDate parsedDate = QDate::fromString(dateWithoutTime, "yyyy-MM-dd");
+        if (!parsedDate.isValid()) {
+            qDebug() << "Date invalide:" << dates[i];
+            parsedDate = QDate::currentDate();  // Utiliser la date actuelle si la date est invalide
+        }
+
+        QString formattedDate = parsedDate.toString("dd MMM yyyy");
+
+        // Créer la chaîne HTML formatée
+        QString formattedText = QString("<b>%1</b><br><small>%2</small>").arg(labels[i], formattedDate);
+
+        // Créer un QGraphicsTextItem et définir le contenu HTML
+        QGraphicsTextItem *textItem = new QGraphicsTextItem();
+        textItem->setHtml(formattedText);  // Utiliser setHtml pour permettre le formatage HTML
         textItem->setDefaultTextColor(Qt::black);
+        textItem->setTextWidth(100);
         textItem->setFont(QFont("Arial", 10));
-        textItem->setPos(x - textItem->boundingRect().width() / 2, (sceneHeight / 2) + 15);
+        textItem->setPos(xPosition - 50, yPosition + circleRadius + 10); // Position du texte sous le cercle
+        timelineScene->addItem(textItem);
+
+        // Ligne (entre les étapes)
+        if (i < stepCount - 1) {
+            QGraphicsLineItem *line = new QGraphicsLineItem(xPosition + circleRadius, yPosition, xPosition + stepSpacing - circleRadius, yPosition);
+            QPen pen(Qt::DashLine);
+            pen.setWidth(2);
+            pen.setColor(Qt::black);
+            line->setPen(pen);
+            timelineScene->addItem(line);
+        }
     }
 }
 
-void MainWindow::onClickSuivi()
+void MainWindow::on_suiviButton_clicked()
 {
-    // Lire l'ID de commande depuis un champ (par exemple, une QLineEdit nommée ui->idCommandeInput)
-    int idCommande = ui->idCommandeInput->text().toInt();
+    QString commandId = ui->idCommandeInput->text();
 
-    if (idCommande == 0) {
-        QMessageBox::warning(this, "Erreur", "Veuillez entrer un ID de commande valide.");
+    if (commandId.isEmpty()) {
+        qDebug() << "Veuillez entrer un ID de commande.";
         return;
     }
 
-    // Récupérer l'état de la commande depuis la base de données
+    // Récupérer les informations associées à l'ID de commande depuis la base de données
     QSqlQuery query;
-    query.prepare("SELECT etatCommande, dateCommande FROM Commande WHERE idCommande = :idCommande");
-    query.bindValue(":idCommande", idCommande);
+    query.prepare(R"(
+        SELECT c."ETATCOMMANDE", s."ETAPE", s."DESCRIPTION", s."DATE_ACTION"
+        FROM "COMMANDE" c
+        JOIN "SUIVI_COMMANDES" s ON c."IDCOMMANDE" = s."ID_COMMANDE"
+        WHERE c."IDCOMMANDE" = :id_commande
+        ORDER BY s."ETAPE" ASC
+    )");
+    query.bindValue(":id_commande", commandId);
 
     if (!query.exec()) {
-        QMessageBox::critical(this, "Erreur", "Impossible de récupérer les données : " + query.lastError().text());
+        qDebug() << "Erreur lors de la récupération des données:" << query.lastError().text();
         return;
     }
 
-    if (query.next()) {
-        QString etatCommande = query.value("etatCommande").toString();
-        QDateTime dateCommande = query.value("dateCommande").toDateTime();
+    QStringList labels;
+    QStringList dates;
+    int maxCompletedStep = -1;
+    QString state; // Variable pour l'état de la commande
 
-        // Étapes possibles pour la timeline
-        QList<QPair<QString, QDateTime>> suiviSteps = {
-            qMakePair("Commande passée", dateCommande.addDays(-3)),  // Ex: 3 jours avant
-            qMakePair("En cours", dateCommande.addDays(-2)),         // 2 jours avant
-            qMakePair("En livraison", dateCommande.addDays(-1)),     // 1 jour avant
-            qMakePair("Livrée", dateCommande)                        // Date actuelle
-        };
+    // Récupérer les données et trier par 'etape'
+    while (query.next()) {
+        // Récupérer l'état de la commande
+        state = query.value("ETATCOMMANDE").toString();
 
-        int currentStep = -1;
+        // Récupérer les informations de suivi
+        int step = query.value("ETAPE").toInt();
+        QString description = query.value("DESCRIPTION").toString();
+        QString dateAction = query.value("DATE_ACTION").toString();
 
-        // Déterminer l'étape actuelle en fonction de l'état de la commande
-        if (etatCommande == "Commande passee") {
-            currentStep = 0;
-        } else if (etatCommande == "En cours") {
-            currentStep = 1;
-        } else if (etatCommande == "En livraison") {
-            currentStep = 2;
-        } else if (etatCommande == "Livree") {
-            currentStep = 3;
-        } else {
-            QMessageBox::warning(this, "Erreur", "État de commande inconnu : " + etatCommande);
-            return;
+        // Ajouter la description et la date dans les listes
+        labels.append(description);
+        dates.append(dateAction);
+
+        // Calculer la dernière étape complète
+        if (step > maxCompletedStep) {
+            maxCompletedStep = step;
         }
-
-        // Mettre à jour la timeline avec les étapes et les dates
-        updateTimeline(suiviSteps, currentStep);
-    } else {
-        QMessageBox::warning(this, "Erreur", "Aucune commande trouvée avec l'ID fourni.");
     }
+
+    if (labels.isEmpty()) {
+        qDebug() << "Aucune donnée trouvée pour l'ID de commande :" << commandId;
+        setupTimeline({}, {}, -1); // Réinitialiser la timeline si aucune donnée n'est trouvée
+        return;
+    }
+
+    // Afficher l'état de la commande (par exemple, dans un QLabel)
+    ui->label_4->setText("État de la commande: " + state);
+
+    // Mettre à jour la timeline avec les données récupérées
+    setupTimeline(labels, dates, maxCompletedStep);
+}
+
+
+void MainWindow::setupArduino() {
+    QString portName = "COM8";  // Change this to your actual COM port
+    arduino->setPortName(portName);
+    arduino->setBaudRate(QSerialPort::Baud9600);
+    arduino->setDataBits(QSerialPort::Data8);
+    arduino->setParity(QSerialPort::NoParity);
+    arduino->setStopBits(QSerialPort::OneStop);
+    arduino->setFlowControl(QSerialPort::NoFlowControl);
+
+    if (arduino->open(QIODevice::ReadWrite)) {  // Change ReadOnly to ReadWrite
+        qDebug() << "Connection with Arduino successful on port:" << portName;
+        QObject::connect(arduino, &QSerialPort::readyRead, this, &MainWindow::readFromArduino);
+    } else {
+        qDebug() << "Error: Unable to connect to Arduino on port:" << portName;
+        QMessageBox::critical(this, "Error", "Unable to connect to Arduino!");
+    }
+}
+
+
+// Slot to handle data received from Arduino
+void MainWindow::readFromArduino() {
+    QByteArray data = arduino->readAll();  // Read all available data
+    QString value = QString(data).trimmed();  // Convert to string and trim spaces
+
+    qDebug() << "Received data from Arduino:" << value;  // Log the raw data
+
+    bool ok;
+    int receivedValue = value.toInt(&ok);  // Convert to integer
+
+    if (ok) {
+        flameStatus = receivedValue;  // Update the flame status
+        qDebug() << "Flame Status:" << flameStatus;
+        updateFlammeTable(flameStatus);  // Update the database
+        controlBuzzer(flameStatus);  // Control the buzzer based on flame status
+        setupTimer();
+    } else {
+        qDebug() << "Invalid data received:" << value;
+    }
+}
+
+
+void MainWindow::updateFlammeTable(int flameStatus)
+{
+    // Validate flameStatus before updating
+    if (flameStatus < 0 || flameStatus > 3) {
+        qDebug() << "Invalid flame status:" << flameStatus;
+        return;
+    }
+
+    QSqlQuery query;
+    query.prepare("UPDATE EQUIPEMENT SET flameStatus = :flameStatus");
+
+    query.bindValue(":flameStatus", flameStatus);
+
+    if (query.exec()) {
+        qDebug() << "Flame status updated in the database to:" << flameStatus;
+    } else {
+        qDebug() << "Failed to update flame status in the database:" << query.lastError().text();
+    }
+}
+int MainWindow::readFlammeStatusFromDB()
+{
+    QSqlQuery query;
+    int flameStatus = -1; // Default value in case of an error
+
+    if (query.exec("SELECT flameStatus FROM EQUIPEMENT")) {
+        if (query.next()) {
+            flameStatus = query.value(0).toInt(); // Get the flameStatus value
+            qDebug() << "Flame status read from database:" << flameStatus;
+        } else {
+            qDebug() << "No data found in Flamme table.";
+        }
+    } else {
+        qDebug() << "Failed to read flame status from database:" << query.lastError().text();
+    }
+
+    return flameStatus;
+}
+#define BUZZER_PIN 13
+#define LOW  0
+#define HIGH 1
+
+void MainWindow::controlBuzzer(int flameStatus) {
+    QByteArray command;
+
+    switch (flameStatus) {
+    case 0:  // No flame detected
+        command = "BUZZER_OFF\n";
+        break;
+    case 1:  // Low-intensity flame
+        command = "BUZZER_LOW\n";
+        break;
+    case 2:  // Medium-intensity flame
+        command = "BUZZER_MEDIUM\n";
+        break;
+    case 3:  // High-intensity flame
+        command = "BUZZER_HIGH\n";
+        break;
+    default:
+        qDebug() << "Invalid flame status.";
+        return;
+    }
+
+    arduino->write(command);  // Send the command to the Arduino
+    qDebug() << "Command sent:" << command;  // Log the command sent
+}
+
+
+void MainWindow::updateBuzzerStatus()
+{
+    int flameStatus = readFlammeStatusFromDB(); // Read flame status from SQL
+    if (flameStatus != -1) { // Check if a valid status was retrieved
+        controlBuzzer(flameStatus); // Control the buzzer based on the status
+    } else {
+        qDebug() << "Failed to retrieve flame status from database.";
+    }
+}
+void MainWindow::setupTimer()
+{
+    QTimer *timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this, &MainWindow::updateBuzzerStatus);
+    timer->start(1000); // Check every 1 second
 }

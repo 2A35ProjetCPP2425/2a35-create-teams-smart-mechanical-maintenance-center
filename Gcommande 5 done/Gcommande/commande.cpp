@@ -81,11 +81,10 @@ int Commande::genererIdCommande() {
     return id;
 }
 
-// Méthode pour ajouter une commande
 bool Commande::ajouter() {
     QSqlQuery query;
 
-    // Préparation de la requête
+    // Préparation de la requête pour insérer dans la table commande
     query.prepare("INSERT INTO commande (idcommande, datecommande, etatcommande, montantTotal, datelivraison) "
                   "VALUES (:idcommande, TO_DATE(:dateCommande, 'YYYY-MM-DD'), :etatCommande, :montantTotal, TO_DATE(:dateLivraison, 'YYYY-MM-DD'))");
 
@@ -104,8 +103,6 @@ bool Commande::ajouter() {
     }
 
     // Ajout de l'historique après une insertion réussie
-    // Vous devez obtenir l'ID de l'employé (idPerso), cela peut être passé comme paramètre à cette fonction
-    // Je vais supposer qu'un identifiant de l'employé est déjà disponible dans l'objet Commande
     int idPerso = 1;  // Exemple, remplacez par le bon identifiant de l'employé
     QString action = "ajout commande";
 
@@ -114,7 +111,34 @@ bool Commande::ajouter() {
         return false;
     }
 
-    qDebug() << "Commande ajoutée et historique mis à jour avec succès.";
+    // Ajouter un suivi pour cette commande dans la table suivi_commandes
+    QSqlQuery suiviQuery;
+    suiviQuery.prepare("INSERT INTO suivi_commandes (id_suivi, id_commande, etape, description, date_action) "
+                           "VALUES (SUIVI_COMMANDES_SEQ.NEXTVAL, :id_commande, :etape, :description, SYSDATE)");
+    suiviQuery.bindValue(":id_commande", idcommande);
+
+    // Etape par défaut : Commande passée (0) lors de l'ajout
+    int etape = 0;  // Commande passée
+    QString description = "Commande ajoutée";
+
+    // Si l'état est "En préparation", nous mettons à jour l'étape
+    if (etatCommande == "En préparation") {
+        etape = 1;
+        description = "En préparation";
+    } else if (etatCommande == "En livraison") {
+        etape = 2;
+        description = "En livraison";
+    }
+
+    suiviQuery.bindValue(":etape", etape);
+    suiviQuery.bindValue(":description", description);
+
+    if (!suiviQuery.exec()) {
+        qDebug() << "Erreur lors de l'ajout dans suivi_commandes:" << suiviQuery.lastError().text();
+        return false;
+    }
+
+    qDebug() << "Commande ajoutée, suivi ajouté et historique mis à jour avec succès.";
     return true;
 }
 
@@ -138,7 +162,6 @@ QSqlQueryModel* Commande::afficher() {
     return model;
 }
 
-// Méthode pour modifier une commande
 bool Commande::modifier(const QDate& dateCommande, const QString& etatCommande,
                         int montantTotal, const QDate& dateLivraison) {
     // Vérifier que l'idCommande est valide (non nul ou négatif)
@@ -192,13 +215,39 @@ bool Commande::modifier(const QDate& dateCommande, const QString& etatCommande,
     }
 
     // After successful modification, log the action in the history
-    // Assuming you have an ID of the employee (idPerso), you can either pass it as a parameter or use an instance variable
     int idPerso = 1;  // Example: Replace with actual logic to fetch the employee's ID
     QString action = "modification commande";
 
     if (!ajouterHistorique(idCommande, idPerso, action)) {
         qDebug() << "Erreur lors de l'ajout à l'historique.";
         return false;  // You may choose to continue or fail here depending on the importance of logging
+    }
+
+    // Now update or insert into suivi_commandes to reflect the changes
+    // For this example, let's assume you need to create a new step in suivi_commandes
+    QSqlQuery suiviQuery;
+    suiviQuery.prepare("INSERT INTO suivi_commandes (id_suivi, id_commande, etape, description, date_action) "
+                           "VALUES (SUIVI_COMMANDES_SEQ.NEXTVAL, :id_commande, :etape, :description, SYSDATE)");
+    suiviQuery.bindValue(":id_commande", idCommande);
+
+    // Set the step based on the new state
+    int etape = 0;  // Default to "Commande passée"
+    QString description = "Commande modifiée";
+
+    if (etatCommande == "En préparation") {
+        etape = 1;
+        description = "En préparation";
+    } else if (etatCommande == "En livraison") {
+        etape = 2;
+        description = "En livraison";
+    }
+
+    suiviQuery.bindValue(":etape", etape);
+    suiviQuery.bindValue(":description", description);
+
+    if (!suiviQuery.exec()) {
+        qDebug() << "Failed to update suivi_commandes:" << suiviQuery.lastError().text();
+        return false;
     }
 
     qDebug() << "Commande modifiée et historique mis à jour avec succès.";
@@ -208,7 +257,7 @@ bool Commande::modifier(const QDate& dateCommande, const QString& etatCommande,
 
 
 
-
+// Méthode pour supprimer une commande
 // Méthode pour supprimer une commande
 bool Commande::supprimer(int idCommande) {
     // Vérifier que l'idCommande est valide (non nul ou négatif)
@@ -219,7 +268,7 @@ bool Commande::supprimer(int idCommande) {
 
     // Suppression de la commande
     QSqlQuery query;
-    query.prepare("DELETE FROM commande WHERE idCommande = :idCommande"); // Assurez-vous que le nom de la colonne est correct
+    query.prepare("DELETE FROM commande WHERE idCommande = :idCommande");
     query.bindValue(":idCommande", idCommande);
 
     if (!query.exec()) {
@@ -227,9 +276,26 @@ bool Commande::supprimer(int idCommande) {
         return false;
     }
 
+    // Ajouter un suivi pour cette suppression dans la table suivi_commandes
+    QSqlQuery suiviQuery;
+    suiviQuery.prepare("INSERT INTO suivi_commandes (id_suivi, id_commande, etape, description, date_action) "
+                           "VALUES (SUIVI_COMMANDES_SEQ.NEXTVAL, :id_commande, :etape, :description, SYSDATE)");
+    suiviQuery.bindValue(":id_commande", idCommande);
+
+    // Etape pour suppression : valeur -1 pour indiquer la suppression
+    int etape = -1;  // Suppression de la commande
+    QString description = "Commande supprimée";
+
+    suiviQuery.bindValue(":etape", etape);
+    suiviQuery.bindValue(":description", description);
+
+    if (!suiviQuery.exec()) {
+        qDebug() << "Erreur lors de l'ajout dans suivi_commandes:" << suiviQuery.lastError().text();
+        return false;
+    }
+
     // Après la suppression, ajouter l'historique de l'action
-    // Vous devez passer l'ID de l'employé (idPerso) ayant effectué l'action, ici j'utilise 1 comme exemple
-    int idPerso = 1; // Remplacer par la logique appropriée pour obtenir l'ID de l'employé
+    int idPerso = 1;  // Remplacer par la logique appropriée pour obtenir l'ID de l'employé
     QString action = "suppression commande";
 
     if (!ajouterHistorique(idCommande, idPerso, action)) {
@@ -237,9 +303,10 @@ bool Commande::supprimer(int idCommande) {
         return false;  // Vous pouvez choisir de retourner false ou true ici selon le comportement souhaité
     }
 
-    qDebug() << "Commande supprimée et historique mis à jour avec succès.";
+    qDebug() << "Commande supprimée, suivi supprimé et historique mis à jour avec succès.";
     return true;
 }
+
 
 
 
