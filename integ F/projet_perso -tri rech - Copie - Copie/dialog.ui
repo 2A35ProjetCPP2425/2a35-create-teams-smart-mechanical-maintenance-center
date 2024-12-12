@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Dialog</class>
+ <widget class="QDialog" name="Dialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>958</width>
+    <height>433</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Dialog</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">/* Fond principal */
+QDialog {
+    background-color: #E3F2FD; /* Bleu très clair pour un fond frais et apaisant */
+    color: #212121; /* Texte sombre pour un bon contraste */
+    border-radius: 15px;
+    padding: 25px;
+}
+
+/* Header */
+QLabel#header {
+    background-color: #1976D2; /* Bleu moyen élégant pour le header */
+    color: #ffffff;
+    font-size: 28px;
+    font-weight: bold;
+    padding: 18px;
+    text-align: center;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Ombre douce pour plus de profondeur */
+}
+
+/* Champs de texte */
+QLineEdit {
+    background: #ffffff; /* Fond blanc pour un contraste propre */
+    border: 2px solid #1976D2; /* Bordure bleu moyen élégant */
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 15px;
+    color: #1565C0; /* Texte bleu foncé pour la lisibilité */
+}
+
+QLineEdit:focus {
+    border-color: #0D47A1; /* Bleu foncé au focus pour accentuer */
+    background: #E1F5FE; /* Fond bleu clair léger au focus */
+}
+
+/* Boutons */
+QPushButton {
+    background-color: #1976D2; /* Bleu moyen pour le bouton */
+    border: none;
+    border-radius: 20px;
+    color: #ffffff;
+    font-size: 16px;
+    padding: 14px 30px;
+    font-weight: bold;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+QPushButton:hover {
+    background-color: #1565C0; /* Bleu plus foncé au survol */
+    transform: scale(1.05);
+}
+
+QPushButton:pressed {
+    background-color: #0D47A1; /* Bleu encore plus foncé au clic */
+}
+
+/* Footer */
+QLabel#footer {
+    color: #90A4AE; /* Gris bleu doux pour footer discret */
+    font-size: 12px;
+    text-align: center;
+    padding-top: 15px;
+}
+</string>
+  </property>
+  <widget class="QPushButton" name="connexion">
+   <property name="geometry">
+    <rect>
+     <x>530</x>
+     <y>330</y>
+     <width>261</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>connexion</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>530</x>
+     <y>280</y>
+     <width>271</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="email">
+   <property name="geometry">
+    <rect>
+     <x>540</x>
+     <y>120</y>
+     <width>251</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="placeholderText">
+    <string>identifiant</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="password">
+   <property name="geometry">
+    <rect>
+     <x>540</x>
+     <y>200</y>
+     <width>251</width>
+     <height>61</height>
+    </rect>
+   </property>
+   <property name="echoMode">
+    <enum>QLineEdit::Password</enum>
+   </property>
+   <property name="placeholderText">
+    <string>password</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_3">
+   <property name="geometry">
+    <rect>
+     <x>120</x>
+     <y>270</y>
+     <width>321</width>
+     <height>51</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">font: 700 11pt &quot;Segoe UI&quot;;</string>
+   </property>
+   <property name="text">
+    <string>&quot;Entretien facile conduite tranquille&quot;</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_4">
+   <property name="geometry">
+    <rect>
+     <x>90</x>
+     <y>100</y>
+     <width>371</width>
+     <height>171</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">font: 700 11pt &quot;Segoe UI&quot;;</string>
+   </property>
+   <property name="text">
+    <string/>
+   </property>
+   <property name="pixmap">
+    <pixmap resource="img.qrc">:/qrc/images/autogenius-logo.png</pixmap>
+   </property>
+   <property name="scaledContents">
+    <bool>true</bool>
+   </property>
+  </widget>
+ </widget>
+ <resources>
+  <include location="img.qrc"/>
+ </resources>
+ <connections/>
+</ui>

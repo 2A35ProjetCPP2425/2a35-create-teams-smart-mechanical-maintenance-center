@@ -1,0 +1,30 @@
+<RCC>
+    <qresource prefix="/qrc">
+        <file>images/ajj.png</file>
+        <file>images/ajouter.png</file>
+        <file>images/ann.png</file>
+        <file>images/annuler.png</file>
+        <file>images/autogenius-logo.png</file>
+        <file>images/clients.png</file>
+        <file>images/commandes.png</file>
+        <file>images/env.png</file>
+        <file>images/equipements.png</file>
+        <file>images/fich.png</file>
+        <file>images/mail.png</file>
+        <file>images/modd.png</file>
+        <file>images/modifier.png</file>
+        <file>images/pdf.png</file>
+        <file>images/personnels.png</file>
+        <file>images/pieces.png</file>
+        <file>images/rech.png</file>
+        <file>images/ree.png</file>
+        <file>images/search.png</file>
+        <file>images/services.png</file>
+        <file>images/smm.png</file>
+        <file>images/sms.png</file>
+        <file>images/stat.png</file>
+        <file>images/supp.png</file>
+        <file>images/supprimer.png</file>
+        <file>images/valid.png</file>
+    </qresource>
+</RCC>
